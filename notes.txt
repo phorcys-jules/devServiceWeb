@@ -1,0 +1,9 @@
+API Façade, porte d'entrée vers une application
+MOin rapide pcq communique sur le reseau
+JSON : format standard
+
+serverless : cms
+headless : directus strapi
+
+client side rendering : n'est pas adapté au réfèrencement, pas de balise a mettre en avant
+dcp API + des pages près-construites pour accèlèrer le chargement et lu par le rèfèrencement
