@@ -1,54 +1,53 @@
 var express = require('express');
 var router = express.Router();
 
+const database = require('../knex');
 
-let lcommandes = {
-  "type": "collection",
-  "count": 3,
-  "commandes": [
-    {
-    "id": "AuTR4-65ZTY",
-    "mail_client": "jan.neymar@yaboo.fr",
-    "date_commande": "2022-01-05 12:00:23",
-    "montant": 25.95
-    },
-    {
-    "id": "657GT-I8G443",
-    "mail_client": "jan.neplin@gmal.fr",
-    "date_commande": "2022-01-06 16:05:47",
-    "montant": 42.95
-    },
-    {
-    "id": "K9J67-4D6F5",
-    "mail_client": "claude.francois@grorange.fr",
-    "date_commande": "2022-01-07 17:36:45",
-    "montant": 14.95
-    },
-  ]};
 
 
 
 
 /* GET commandes listing. */
-router.get('/', function(req, res, next) {
-  res.send('commandes homepge');
+router.get('/test', async function (req, res, next) {
+  let data = await database.select().from('commande');
+  res.json(data);
 });
 
-router.get('/all', function(req, res, next) {
-  res.json(lcommandes)
+router.get('/', async function (req, res, next) {
+  let data;
+  try {
+  data = await database.select().from('commande');
+  } catch (error) {
+    res.status(500).json({
+      "type": "error",
+      "error": 500,
+      "message": `impossible d'accèder a la base de données`
+    });
+  }
+  res.json(data)
 });
 
-router.get('/:id', function(req, res, next) {
-  //console.log(req.params);
-  let commande = lcommandes.commandes.find( commande => commande.id === req.params.id);
+router.get('/:id', async function (req, res, next) {
+  let commande;
+  try {
+    commande = await database.select().from('commande').where('id', req.params.id);
+  } catch (error) {
+    res.status(500).json({
+      "type": "error",
+      "error": 500,
+      "message": `impossible d'accèder a la base de données`
+    });
+  }
   console.log(commande);
-  if(commande===undefined){
+  if (commande && commande.length === 0) {
     res.status(404).json({
-        "type": "error",
-        "error": 404,
-        "message": `commande ${req.params.id} non trouvé`});
-}
-  res.json(commande);
+      "type": "error",
+      "error": 404,
+      "message": `commande ${req.params.id} non trouvée`
+    });
+  } else {
+    res.json(commande);
+  }
 });
 
 

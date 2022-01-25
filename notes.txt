@@ -1,5 +1,5 @@
 API Façade, porte d'entrée vers une application
-MOin rapide pcq communique sur le reseau
+MOin rapide que monolithe  pcq communique sur le reseau
 JSON : format standard
 
 serverless : cms

@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require("express");
 const path = require('path');
 const cookieParser = require('cookie-parser');
@@ -21,7 +22,12 @@ app.use(express.static(path.join(__dirname, 'public')));
  app.use('/', indexRouter);
  app.use('/commandes', commandesRouter);
 
-
+ app.get('*', function (req, res) {
+    res.status(400).json({
+      "type": "error",
+      "error": 400,
+      "message": `route inconnu`});
+  })
 
 
 
