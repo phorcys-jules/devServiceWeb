@@ -7,3 +7,11 @@ headless : directus strapi
 
 client side rendering : n'est pas adapté au réfèrencement, pas de balise a mettre en avant
 dcp API + des pages près-construites pour accèlèrer le chargement et lu par le rèfèrencement
+
+joy verification des datas
+
+
+node, multithread
+(	
+
+codejs compiler en bytecode par node
