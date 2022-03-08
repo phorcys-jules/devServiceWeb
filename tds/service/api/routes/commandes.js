@@ -3,6 +3,10 @@ var router = express.Router();
 
 const database = require('../knex');
 
+const { v4: uuidv4 } = require('uuid');
+const bcrypt = require('bcrypt');
+const Joi = require('joi');
+
 
 
 
@@ -24,16 +28,19 @@ router.get('/', async function (req, res, next) {
 });
 
 router.get('/:id', async function (req, res, next) {
-  let commande ={type : "ressource"};
+  let commande = { type: "ressource" };
   let toSend;
   try {
-    commande.commande = (await database.select('id', 'mail', 'nom', 'created_at', 'livraison', 'montant').from('commande').where('id', req.params.id))[0];
+    commande.commande = (await database.select('id', 'mail', 'nom', 'created_at', 'livraison', 'montant', 'token').from('commande').where('id', req.params.id))[0];
 
   } catch (error) {
     res.status(500).json(erreur(500));
   }
+  if (req.headers.x_lbs_token != commande.commande.token  && (req.query.token && req.query.token != commande.commande.token)) {
+    return res.status(401).json(erreur(401));
 
-  //console.log(commande);
+  }
+
   if (commande.data && commande.data.length === 0) {
     res.status(404).json({
       "type": "error",
@@ -42,12 +49,11 @@ router.get('/:id', async function (req, res, next) {
     });
   } else {
     //mode détaillé ou l'on ajoute les items : 
-    
+
     if (req.query.embed && req.query.embed === "items") {
       try {
         items = await database.select('id', 'uri', 'libelle', 'tarif', 'quantite').from('item').where('command_id', req.params.id)
       } catch (error) {
-        //res.status(500).send(error);
         res.status(500).json(erreur(500));
       }
       commande.items = items;
@@ -124,43 +130,112 @@ router.get('/:id/items', async function (req, res, next) {
   }
 });
 
-//TODO
+
 //: nom du client, mail du client, date et heure de livraison.
-router.post('/:id', async function (req, res, next) {
-  let commande;
+router.post('/', async function (req, res, next) {
+  const schema = Joi.object().keys({
+    livraison: Joi.object().keys({
+      //date: Joi.date().greater('now').required(),
+      date: Joi.date().required(),
+      heure: Joi.string().required(),
+    }),
+    nom: Joi.string().required(),
+    mail: Joi.string().email().required(),
+    items: Joi.array().items(Joi.object().keys({
+      libelle: Joi.string().required(),
+      uri: Joi.string().required(),
+      quantite: Joi.number().required(),
+      tarif: Joi.number().required(),
+    }))
+  })
+
   try {
-    commande = await database.from('commande').where('id', req.params.id).update({
+    Joi.assert(req.body, schema)
+  } catch (error) {
+    return res.status(422).send("wrong inputs");
+  }
+
+  let commandeToAdd;
+  let itemsToAdd = [];
+  let DBResult;
+  let command_id = uuidv4();
+  let montant = 0;
+
+  if (!req.body.items || req.body.items.length < 1) {
+    //erreur items vide
+    return res.status(400).json(erreur(4001));
+  }
+  req.body.items.forEach(itm => {
+    itemsToAdd.push({
+      uri: itm.uri,
+      quantite: itm.quantite,
+      libelle: itm.libelle,
+      tarif: itm.tarif,
+      command_id: command_id
+    })
+    montant+= itm.tarif*itm.quantite;
+  });
+  try {
+    //items
+    DBResult = await database.insert(itemsToAdd).into("item");
+  } catch (error) {
+    console.log("errrrrrrr,   ", error);
+  }
+  console.log("montant : ", montant);
+
+  try {
+    //commande
+    commandeToAdd = {
+      id: command_id,
+      created_at: new Date(),
+      updated_at: new Date(),
+      livraison: req.body.livraison.date + ' ' + req.body.livraison.heure,
       nom: req.body.nom,
       mail: req.body.mail,
-      livraison: req.body.livraison,
-      updated_at: new Date()
-    });
+      token: uuidv4(),
+      montant: montant
+
+    }
+    DBResult = await database.insert(commandeToAdd).into("commande");
+
   } catch (error) {
-    //console.log(error);
+    if (error.code === 'ER_TRUNCATED_WRONG_VALUE') {
+      res.status(400).json(erreur(400));
+    }
+    console.log(error);
+
     res.status(500).json(erreur(500));
   }
-  //affected rows = 0
-  if (commande === 0) {
-    res.status(404).json({
-      "type": "error",
-      "error": 404,
-      "message": `commande ${req.params.id} non trouvée`
-    });
-  } else {
-    res.status(204).json(commande);
-  }
+  res.status(201).json({ commande: commandeToAdd })
 });
 
 
 function erreur(type) {
   switch (type) {
+    case 400:
+      return {
+        "type": "error",
+        "error": 400,
+        "message": `impossible d'éxècuter la requete, la synthaxe ne correspond pas à ce qui est attendu`
+      };
+    case 4001:
+      return {
+        "type": "error",
+        "error": 400,
+        "message": `impossible d'éxècuter la requete, une commande ne peut pas être vide`
+      };
+    case 401:
+      return {
+        "type": "error",
+        "error": 401,
+        "message": `Vous n'êtes pas authorisé à effectuer cette action`
+      };
     case 500:
       return {
         "type": "error",
         "error": 500,
         "message": `impossible d'éxècuter la requete, vérifier la connexion à la base de données`
       };
-      break;
 
     default:
       break;
